@@ -428,6 +428,8 @@ export function renderPoster(ctx, width, height, opts) {
   const tieneNombres = Boolean(nombres);
 
   // Título
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
   const yTitulo = H * 0.085;
   const yFecha = H * 0.1185;
   const yLinea = H * 0.148;
@@ -466,63 +468,120 @@ export function renderPoster(ctx, width, height, opts) {
   ctx.closePath();
   ctx.fill();
 
-  // Nombres con tipografía tipo firma, antes del lugar y la dedicatoria
-  if (tieneNombres) {
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    const familia = `"${tipografiaNombres}", "Segoe Script", "Brush Script MT", "Apple Chancery", cursive`;
-    let size = W * 0.045;
-    ctx.font = `400 ${size}px ${familia}`;
-    while (ctx.measureText(nombres).width > W * 0.8 && size > W * 0.028) {
-      size -= W * 0.001;
-      ctx.font = `400 ${size}px ${familia}`;
+  // Código de Spotify: se reserva su espacio antes de repartir el bloque inferior.
+  const tieneSpotify = Boolean(spotify?.bitmap);
+  const caption = String(spotify?.caption ?? "").trim();
+  let captionSize = W * 0.0145;
+  const codeW = W * (tieneNombres ? 0.26 : 0.28);
+  const codeH = codeW / 4;
+  const pad = W * (tieneNombres ? 0.011 : 0.012);
+
+  if (caption) {
+    ctx.font = `italic 400 ${captionSize}px Georgia, "Times New Roman", serif`;
+    while (ctx.measureText(caption).width > codeW && captionSize > W * 0.009) {
+      captionSize -= W * 0.0005;
+      ctx.font = `italic 400 ${captionSize}px Georgia, "Times New Roman", serif`;
     }
-    ctx.fillStyle = theme.accent;
-    ctx.fillText(nombres, cx, H * 0.752);
   }
 
-  // Lugar
-  if (lugarTexto) {
-    ctx.fillStyle = theme.text;
-    ctx.font = `400 ${W * 0.0195}px "Segoe UI", system-ui, sans-serif`;
-    ctx.fillText(lugarTexto, cx, H * (tieneNombres ? 0.783 : 0.75));
-  }
+  const captionH = caption ? captionSize * 1.2 : 0;
+  const gapCaption = caption ? W * 0.006 : 0;
+  const cardW = codeW + pad * 2;
+  const cardH = pad * 2 + captionH + gapCaption + codeH;
+  const cardX = cx - cardW / 2;
+  const cardY = H * (tieneNombres ? 0.872 : 0.865);
 
-  // Dedicatoria
-  if (mensaje) {
-    ctx.fillStyle = theme.muted;
-    ctx.font = `italic 400 ${W * 0.0225}px Georgia, "Times New Roman", serif`;
-    const lines = wrapText(ctx, mensaje, W * 0.72).slice(0, 3);
-    const yMensaje = H * (tieneNombres ? 0.802 : 0.7965);
-    lines.forEach((line, i) => {
-      ctx.fillText(line, cx, yMensaje + i * H * 0.0255);
-    });
+  // Bloque inferior: nombres, lugar y dedicatoria.
+  const familia = `"${tipografiaNombres}", "Segoe Script", "Brush Script MT", "Apple Chancery", cursive`;
+  let namesSize = W * 0.045;
+  ctx.font = `400 ${namesSize}px ${familia}`;
+  while (ctx.measureText(nombres || " ").width > W * 0.8 && namesSize > W * 0.028) {
+    namesSize -= W * 0.001;
+    ctx.font = `400 ${namesSize}px ${familia}`;
+  }
+  const namesMetrics = ctx.measureText(nombres || "Ana");
+  const namesAscent = namesMetrics.actualBoundingBoxAscent || namesSize * 0.75;
+  const namesDescent = namesMetrics.actualBoundingBoxDescent || namesSize * 0.25;
+
+  const placeSize = W * 0.0195;
+  ctx.font = `400 ${placeSize}px "Segoe UI", system-ui, sans-serif`;
+  const placeMetrics = ctx.measureText(lugarTexto || "Bogotá");
+  const placeAscent = placeMetrics.actualBoundingBoxAscent || placeSize * 0.75;
+  const placeDescent = placeMetrics.actualBoundingBoxDescent || placeSize * 0.25;
+
+  const msgSize = W * 0.0225;
+  ctx.font = `italic 400 ${msgSize}px Georgia, "Times New Roman", serif`;
+  const msgLines = mensaje ? wrapText(ctx, mensaje, W * 0.72).slice(0, 3) : [];
+  const msgLineHeight = H * 0.0255;
+  let msgAscent = 0;
+  let msgDescent = 0;
+  for (const line of msgLines) {
+    const m = ctx.measureText(line || "A");
+    msgAscent = Math.max(msgAscent, m.actualBoundingBoxAscent || msgSize * 0.75);
+    msgDescent = Math.max(msgDescent, m.actualBoundingBoxDescent || msgSize * 0.25);
+  }
+  const msgHeight = msgLines.length
+    ? (msgLines.length - 1) * msgLineHeight + msgAscent + msgDescent
+    : 0;
+
+  if (tieneNombres) {
+    const items = [];
+    if (nombres) {
+      items.push({ tipo: "nombres", alto: namesAscent + namesDescent, asc: namesAscent });
+    }
+    if (lugarTexto) {
+      items.push({ tipo: "lugar", alto: placeAscent + placeDescent, asc: placeAscent });
+    }
+    if (msgLines.length) {
+      items.push({ tipo: "mensaje", alto: msgHeight, asc: msgAscent });
+    }
+
+    const inicio = H * 0.7216; // justo debajo de la etiqueta cardinal S
+    const fin = H * (tieneSpotify ? 0.872 : 0.93);
+    const contenido = items.reduce((total, item) => total + item.alto, 0);
+    const separacion = Math.max(
+      (fin - inicio - contenido) / (items.length + 1),
+      H * 0.006,
+    );
+
+    let y = inicio + separacion;
+    for (const item of items) {
+      const baseline = y + item.asc;
+      if (item.tipo === "nombres") {
+        ctx.fillStyle = theme.accent;
+        ctx.font = `400 ${namesSize}px ${familia}`;
+        ctx.fillText(nombres, cx, baseline);
+      } else if (item.tipo === "lugar") {
+        ctx.fillStyle = theme.text;
+        ctx.font = `400 ${placeSize}px "Segoe UI", system-ui, sans-serif`;
+        ctx.fillText(lugarTexto, cx, baseline);
+      } else {
+        ctx.fillStyle = theme.muted;
+        ctx.font = `italic 400 ${msgSize}px Georgia, "Times New Roman", serif`;
+        msgLines.forEach((line, i) => {
+          ctx.fillText(line, cx, baseline + i * msgLineHeight);
+        });
+      }
+      y += item.alto + separacion;
+    }
+  } else {
+    // Sin nombres: se mantiene el bloque original.
+    if (lugarTexto) {
+      ctx.fillStyle = theme.text;
+      ctx.font = `400 ${placeSize}px "Segoe UI", system-ui, sans-serif`;
+      ctx.fillText(lugarTexto, cx, H * 0.75);
+    }
+    if (msgLines.length) {
+      ctx.fillStyle = theme.muted;
+      ctx.font = `italic 400 ${msgSize}px Georgia, "Times New Roman", serif`;
+      msgLines.forEach((line, i) => {
+        ctx.fillText(line, cx, H * 0.7965 + i * msgLineHeight);
+      });
+    }
   }
 
   // Código de Spotify
-  const tieneSpotify = Boolean(spotify?.bitmap);
   if (tieneSpotify) {
-    const codeW = W * 0.28;
-    const codeH = codeW / 4;
-    const pad = W * 0.012;
-    const caption = String(spotify.caption ?? "").trim();
-    let captionSize = W * 0.0145;
-
-    if (caption) {
-      ctx.font = `italic 400 ${captionSize}px Georgia, "Times New Roman", serif`;
-      while (ctx.measureText(caption).width > codeW && captionSize > W * 0.009) {
-        captionSize -= W * 0.0005;
-        ctx.font = `italic 400 ${captionSize}px Georgia, "Times New Roman", serif`;
-      }
-    }
-
-    const captionH = caption ? captionSize * 1.2 : 0;
-    const gap = caption ? W * 0.006 : 0;
-    const cardW = codeW + pad * 2;
-    const cardH = pad * 2 + captionH + gap + codeH;
-    const cardX = cx - cardW / 2;
-    const cardY = H * 0.865;
-
     ctx.save();
     ctx.fillStyle = theme.bg;
     ctx.strokeStyle = withAlpha(theme.accent, 0.35);
@@ -538,7 +597,7 @@ export function renderPoster(ctx, width, height, opts) {
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       ctx.fillText(caption, cx, y);
-      y += captionH + gap;
+      y += captionH + gapCaption;
     }
 
     ctx.drawImage(spotify.bitmap, cardX + pad, y, codeW, codeH);
