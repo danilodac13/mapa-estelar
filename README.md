@@ -84,8 +84,10 @@ sin venta no hay problema. Este proyecto no está afiliado a Spotify.
 
 ## Nombres y tipografías
 
-El campo **Nombres** es opcional. Si lo rellenas, los nombres se dibujan en la
-parte superior del póster con una tipografía de firma, por encima del título.
+El campo **Nombres** es opcional. Si lo rellenas, los nombres se dibujan con una
+tipografía de firma en la parte inferior del póster, entre el mapa y la
+dedicatoria, justo antes del lugar y del mensaje. El tamaño se ajusta solo para
+que quepan en el ancho disponible.
 
 Puedes elegir entre cuatro tipografías, todas incluidas en el proyecto:
 

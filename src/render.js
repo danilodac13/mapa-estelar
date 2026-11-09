@@ -425,25 +425,11 @@ export function renderPoster(ctx, width, height, opts) {
     ctx.fillText(label, cx + p.x, cy + p.y);
   }
 
-  // Nombres con tipografía tipo firma
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
   const tieneNombres = Boolean(nombres);
-  if (tieneNombres) {
-    const familia = `"${tipografiaNombres}", "Segoe Script", "Brush Script MT", "Apple Chancery", cursive`;
-    let size = W * 0.058;
-    ctx.font = `400 ${size}px ${familia}`;
-    while (ctx.measureText(nombres).width > W * 0.8 && size > W * 0.028) {
-      size -= W * 0.001;
-      ctx.font = `400 ${size}px ${familia}`;
-    }
-    ctx.fillStyle = theme.accent;
-    ctx.fillText(nombres, cx, H * 0.048);
-  }
 
   // Título
-  const yTitulo = H * (tieneNombres ? 0.095 : 0.085);
-  const yFecha = H * (tieneNombres ? 0.126 : 0.1185);
+  const yTitulo = H * 0.085;
+  const yFecha = H * 0.1185;
   const yLinea = H * 0.148;
   if (titulo) {
     ctx.fillStyle = theme.text;
@@ -480,11 +466,26 @@ export function renderPoster(ctx, width, height, opts) {
   ctx.closePath();
   ctx.fill();
 
+  // Nombres con tipografía tipo firma, antes del lugar y la dedicatoria
+  if (tieneNombres) {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    const familia = `"${tipografiaNombres}", "Segoe Script", "Brush Script MT", "Apple Chancery", cursive`;
+    let size = W * 0.045;
+    ctx.font = `400 ${size}px ${familia}`;
+    while (ctx.measureText(nombres).width > W * 0.8 && size > W * 0.028) {
+      size -= W * 0.001;
+      ctx.font = `400 ${size}px ${familia}`;
+    }
+    ctx.fillStyle = theme.accent;
+    ctx.fillText(nombres, cx, H * 0.752);
+  }
+
   // Lugar
   if (lugarTexto) {
     ctx.fillStyle = theme.text;
     ctx.font = `400 ${W * 0.0195}px "Segoe UI", system-ui, sans-serif`;
-    ctx.fillText(lugarTexto, cx, H * 0.75);
+    ctx.fillText(lugarTexto, cx, H * (tieneNombres ? 0.783 : 0.75));
   }
 
   // Dedicatoria
@@ -492,8 +493,9 @@ export function renderPoster(ctx, width, height, opts) {
     ctx.fillStyle = theme.muted;
     ctx.font = `italic 400 ${W * 0.0225}px Georgia, "Times New Roman", serif`;
     const lines = wrapText(ctx, mensaje, W * 0.72).slice(0, 3);
+    const yMensaje = H * (tieneNombres ? 0.802 : 0.7965);
     lines.forEach((line, i) => {
-      ctx.fillText(line, cx, H * 0.7965 + i * H * 0.0255);
+      ctx.fillText(line, cx, yMensaje + i * H * 0.0255);
     });
   }
 
