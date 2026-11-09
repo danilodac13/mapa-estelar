@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapa Estelar — el cielo de tu momento</title>
+    <meta
+      name="description"
+      content="Crea el mapa del cielo de una fecha, hora y lugar. Descárgalo en alta resolución. Todo se genera en tu navegador."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070b14'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23d9b56a' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='1.6' fill='%23d9b56a'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="panel">
+        <header class="brand">
+          <div class="logo" aria-hidden="true">✦</div>
+          <div>
+            <h1>Mapa Estelar</h1>
+            <p>El cielo de un momento que quieres recordar.</p>
+          </div>
+        </header>
+
+        <section class="group">
+          <h2>El recuerdo</h2>
+
+          <label class="field">
+            Título
+            <input
+              id="titulo"
+              type="text"
+              maxlength="42"
+              value="Nuestro cielo"
+              autocomplete="off"
+            />
+          </label>
+
+          <div class="row">
+            <label class="field">
+              Fecha
+              <input id="fecha" type="date" />
+            </label>
+            <label class="field">
+              Hora
+              <input id="hora" type="time" />
+            </label>
+          </div>
+
+          <button id="ahora" type="button" class="ghost small">Usar la fecha y hora actuales</button>
+
+          <label class="field">
+            Lugar
+            <select id="lugarPreset"></select>
+          </label>
+
+          <label class="field">
+            Nombre que aparecerá en el mapa
+            <input id="lugarNombre" type="text" maxlength="60" autocomplete="off" />
+          </label>
+
+          <details class="advanced">
+            <summary>Coordenadas y zona horaria</summary>
+
+            <div class="row">
+              <label class="field">
+                Latitud
+                <input id="lat" type="number" step="0.0001" min="-90" max="90" />
+              </label>
+              <label class="field">
+                Longitud
+                <input id="lon" type="number" step="0.0001" min="-180" max="180" />
+              </label>
+            </div>
+
+            <label class="field">
+              Zona horaria del lugar
+              <select id="tz"></select>
+            </label>
+
+            <div class="search">
+              <input
+                id="buscar"
+                type="text"
+                placeholder="Buscar una ciudad en OpenStreetMap…"
+                autocomplete="off"
+              />
+              <button id="btnBuscar" type="button" class="ghost">Buscar</button>
+            </div>
+            <select id="resultados" hidden></select>
+
+            <p class="hint">
+              La zona horaria no se detecta automáticamente. Ajústala si el lugar usa
+              horario de verano.
+            </p>
+          </details>
+
+          <label class="field">
+            Dedicatoria
+            <textarea id="mensaje" rows="2" maxlength="180">Bajo este cielo empezó todo.</textarea>
+          </label>
+        </section>
+
+        <section class="group">
+          <h2>El cielo</h2>
+
+          <label class="field">
+            Tema
+            <select id="tema">
+              <option value="noche">Noche</option>
+              <option value="azul">Azul profundo</option>
+              <option value="sepia">Sepia</option>
+              <option value="blanco">Blanco</option>
+            </select>
+          </label>
+
+          <div class="checks">
+            <label><input id="constelaciones" type="checkbox" checked /> Constelaciones</label>
+            <label><input id="viaLactea" type="checkbox" checked /> Vía Láctea</label>
+            <label><input id="luna" type="checkbox" checked /> Luna</label>
+            <label><input id="cuadricula" type="checkbox" /> Cuadrícula</label>
+            <label class="wide">
+              <input id="colorEstrellas" type="checkbox" checked /> Color real de las estrellas
+            </label>
+          </div>
+        </section>
+
+        <section class="group">
+          <h2>Descargar</h2>
+
+          <label class="field">
+            Formato
+            <select id="formato">
+              <option value="3:4" selected>3:4 · clásico</option>
+              <option value="4:5">4:5 · retrato</option>
+              <option value="2:3">2:3 · panorámico</option>
+            </select>
+          </label>
+
+          <label class="field">
+            Ancho de salida
+            <select id="tamano">
+              <option value="1800">1800 px</option>
+              <option value="2400" selected>2400 px</option>
+              <option value="3000">3000 px</option>
+              <option value="3600">3600 px</option>
+            </select>
+          </label>
+          <p class="hint" id="medidas"></p>
+
+          <button id="descargar" type="button" class="primary">Descargar PNG</button>
+          <p class="hint">
+            Se genera en tu navegador y se guarda en la carpeta <code>descargas/</code> de
+            tu equipo. Nada sale de aquí.
+          </p>
+        </section>
+
+        <footer class="foot">
+          Datos abiertos · HYG Database + d3-celestial<br />
+          Proyección estereográfica · sin dependencias
+        </footer>
+      </aside>
+
+      <main class="stage">
+        <canvas id="preview" aria-label="Vista previa del mapa estelar"></canvas>
+        <p class="status" id="status" role="status"></p>
+      </main>
+    </div>
+
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+        <header class="modal-head">
+          <h2 id="modalTitulo">Tu mapa estelar</h2>
+          <button id="cerrarModal" class="icon" type="button" aria-label="Cerrar">×</button>
+        </header>
+
+        <div class="modal-preview">
+          <img id="resultado" alt="Vista previa del mapa estelar generado" />
+        </div>
+
+        <p class="hint" id="resultadoInfo"></p>
+
+        <div class="guardado" id="guardadoInfo" hidden>
+          <span>Guardado en <code id="rutaGuardada"></code></span>
+          <button id="copiarRuta" class="ghost" type="button">Copiar ruta</button>
+        </div>
+
+        <div class="modal-actions">
+          <a id="guardar" class="primary" download>Guardar PNG</a>
+          <a id="abrir" class="ghost" target="_blank" rel="noopener">Abrir en pestaña nueva</a>
+        </div>
+
+        <p class="hint">
+          Si la descarga automática no aparece, pulsa «Guardar PNG» o mantén pulsada la
+          imagen y elige «Guardar imagen como…».
+        </p>
+      </div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
