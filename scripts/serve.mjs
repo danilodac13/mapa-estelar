@@ -25,9 +25,20 @@ const MIME = {
   ".txt": "text/plain; charset=utf-8",
 };
 
+// Cabeceras de seguridad básicas. No ocultan el código (eso es imposible en
+// una web), pero evitan el sniffing de tipos, el encuadre de la página y el
+// uso de permisos que la aplicación no necesita.
+const SEGURIDAD = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "X-Frame-Options": "DENY",
+  "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
+};
+
 const json = (res, status, payload) => {
   const body = JSON.stringify(payload);
   res.writeHead(status, {
+    ...SEGURIDAD,
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
     "Cache-Control": "no-store",
@@ -122,6 +133,7 @@ const server = createServer(async (req, res) => {
 
     const body = await readFile(target);
     res.writeHead(200, {
+      ...SEGURIDAD,
       "Content-Type": MIME[extname(target).toLowerCase()] ?? "application/octet-stream",
       "Content-Length": body.length,
       "Cache-Control": "no-cache",

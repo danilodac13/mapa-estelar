@@ -1,5 +1,6 @@
 import { computeSky, formatFechaEs, localToUtcMs } from "./astronomy.js";
 import { renderPoster, THEMES, FORMATOS } from "./render.js";
+import { iniciarProteccion } from "./proteccion.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -775,4 +776,5 @@ function init() {
   });
 }
 
+iniciarProteccion();
 init();

@@ -120,6 +120,7 @@ mapa-estelar/
 │   ├── astronomy.js        Tiempo sidéreo, precesión, Sol, Luna, proyección
 │   ├── render.js           Dibujo del póster en canvas
 │   ├── main.js             Estado, controles, búsqueda y descarga
+│   ├── proteccion.js       Disuasión de inspección y atajos
 │   └── styles.css          Estilos
 ├── assets/
 │   └── fonts/              Tipografías de firma (WOFF2 + licencias OFL)
@@ -168,6 +169,31 @@ reducir el peso. Tarda menos de un minuto.
 - Los mapas se generan en memoria del navegador y el PNG se envía al servidor
   local (`127.0.0.1`) únicamente para escribirlo en `descargas/`. No sale de tu
   equipo.
+
+## Protección de la interfaz
+
+La página incluye una disuasión básica contra la inspección: bloquea el menú
+contextual, los atajos habituales de las herramientas de desarrollo (`F12`,
+`Ctrl+Mayús+I/J/C/K`, `Ctrl+U`, `Ctrl+S`) y muestra un aviso si detecta el panel
+acoplado en la parte inferior. El servidor añade además cabeceras
+`X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options` y
+`Permissions-Policy`.
+
+**Esto no es seguridad real.** Cualquier navegador tiene que descargar el HTML, el
+CSS y el JavaScript para poder mostrarlos, así que una persona con conocimientos
+puede verlos con `ver código fuente`, las herramientas de red, `curl` o el propio
+repositorio. La única forma de proteger de verdad una lógica es no enviarla al
+navegador (por ejemplo, moverla a un servidor). Aquí todo se genera en local, así
+que el código es necesariamente visible.
+
+Para trabajar sin las restricciones, abre la app con `?dev=1` o ejecuta una vez
+en la consola:
+
+```js
+localStorage.setItem("mapaEstelarDev", "1");
+```
+
+Para volver a activarlas: `localStorage.removeItem("mapaEstelarDev")`.
 
 ## Si el navegador no descarga el PNG
 

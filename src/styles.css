@@ -515,3 +515,49 @@ button.icon:hover {
     width: min(92vw, 520px);
   }
 }
+
+/* --- Aviso de inspección -------------------------------------------------- */
+
+.aviso-inspeccion {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 7, 14, 0.84);
+  backdrop-filter: blur(10px);
+}
+
+.aviso-inspeccion[hidden] {
+  display: none;
+}
+
+.aviso-card {
+  max-width: 420px;
+  padding: 28px 26px 24px;
+  border: 1px solid rgba(217, 181, 106, 0.35);
+  border-radius: 16px;
+  background: #0b1120;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+
+.aviso-card h2 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+}
+
+.aviso-card p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.aviso-card button {
+  width: auto;
+  margin: 0;
+  padding: 9px 22px;
+}
