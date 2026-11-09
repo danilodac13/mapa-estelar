@@ -106,6 +106,29 @@ let constellations = [];
 let listo = false;
 let timer = null;
 
+const SPOTIFY_TIPOS = new Set(["track", "album", "playlist", "artist", "episode", "show"]);
+const SPOTIFY_CODE_BASE = "https://scannables.scdn.co/uri/plain/png";
+const spotifyCache = new Map();
+
+const FUENTES_FIRMA = [
+  { familia: "Great Vibes", archivo: "assets/fonts/GreatVibes-Regular.woff2" },
+  { familia: "Parisienne", archivo: "assets/fonts/Parisienne-Regular.woff2" },
+  { familia: "Sacramento", archivo: "assets/fonts/Sacramento-Regular.woff2" },
+  { familia: "Pinyon Script", archivo: "assets/fonts/PinyonScript-Regular.woff2" },
+];
+
+let spotifySeq = 0;
+let spotifyUiSeq = 0;
+let spotifyTimer = null;
+let spotify = {
+  uri: null,
+  themeKey: null,
+  bitmap: null,
+  caption: "",
+  loading: false,
+  error: null,
+};
+
 function setStatus(texto) {
   $("status").textContent = texto;
 }
@@ -161,9 +184,205 @@ function aplicarLugar(l) {
   $("tz").value = String(l.tz);
 }
 
+function parseSpotifyUri(raw) {
+  const input = String(raw ?? "")
+    .trim()
+    .split(/[?#]/)[0]
+    .trim();
+  if (!input) return null;
+
+  if (input.toLowerCase().startsWith("spotify:")) {
+    const partes = input.split(":").map((p) => p.trim()).filter(Boolean);
+    for (let i = 1; i < partes.length - 1; i++) {
+      const tipo = partes[i].toLowerCase();
+      const id = partes[i + 1];
+      if (SPOTIFY_TIPOS.has(tipo) && /^[0-9A-Za-z]{22}$/.test(id)) {
+        return `spotify:${tipo}:${id}`;
+      }
+    }
+    return null;
+  }
+
+  let url;
+  try {
+    url = new URL(input);
+  } catch {
+    return null;
+  }
+  if (!/(^|\.)spotify\.com$/i.test(url.hostname)) return null;
+
+  const partes = url.pathname.split("/").filter(Boolean);
+  for (let i = 0; i < partes.length - 1; i++) {
+    const tipo = partes[i].toLowerCase();
+    const id = partes[i + 1];
+    if (SPOTIFY_TIPOS.has(tipo) && /^[0-9A-Za-z]{22}$/.test(id)) {
+      return `spotify:${tipo}:${id}`;
+    }
+  }
+  return null;
+}
+
+function spotifyTema(theme) {
+  return {
+    bg: theme.bg.replace("#", ""),
+    fg: theme.mono ? "black" : "white",
+  };
+}
+
+function spotifyCodeUrl(uri, theme, size = 1280) {
+  const { bg, fg } = spotifyTema(theme);
+  return `${SPOTIFY_CODE_BASE}/${bg}/${fg}/${size}/${uri}`;
+}
+
+async function cargarImagenSpotify(url) {
+  const res = await fetch(url, { mode: "cors", cache: "force-cache" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  if (!blob.type.startsWith("image/")) throw new Error("La respuesta no es una imagen");
+
+  if ("createImageBitmap" in window) return createImageBitmap(blob);
+
+  const objUrl = URL.createObjectURL(blob);
+  try {
+    return await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("No se pudo decodificar el código"));
+      img.src = objUrl;
+    });
+  } finally {
+    URL.revokeObjectURL(objUrl);
+  }
+}
+
+function cargarCodigoSpotify(uri, theme) {
+  const { bg, fg } = spotifyTema(theme);
+  const clave = `${uri}|${bg}|${fg}`;
+  if (!spotifyCache.has(clave)) {
+    spotifyCache.set(
+      clave,
+      cargarImagenSpotify(spotifyCodeUrl(uri, theme)).catch((err) => {
+        spotifyCache.delete(clave);
+        throw err;
+      }),
+    );
+  }
+  return spotifyCache.get(clave);
+}
+
+/**
+ * Deja `spotify.bitmap` listo para el tema y el enlace actuales. Devuelve el
+ * bitmap o null si no hay código válido o si Spotify no responde.
+ */
+async function asegurarCodigo(s) {
+  const token = ++spotifySeq;
+  const activo = $("spotifyOn").checked;
+  const uri = activo ? parseSpotifyUri($("spotifyUrl").value) : null;
+  const caption = $("spotifyTexto").value.trim();
+
+  if (!uri) {
+    spotify = { uri: null, themeKey: null, bitmap: null, caption: "", loading: false, error: null };
+    return null;
+  }
+
+  const theme = THEMES[s.tema] ?? THEMES.noche;
+  const { bg, fg } = spotifyTema(theme);
+  const themeKey = `${bg}|${fg}`;
+
+  if (spotify.uri === uri && spotify.themeKey === themeKey && spotify.bitmap) {
+    spotify.caption = caption;
+    return spotify.bitmap;
+  }
+
+  spotify = { uri, themeKey, bitmap: null, caption, loading: true, error: null };
+  try {
+    const bitmap = await cargarCodigoSpotify(uri, theme);
+    if (token !== spotifySeq) return null;
+    spotify.bitmap = bitmap;
+    spotify.loading = false;
+    spotify.error = null;
+    return bitmap;
+  } catch (err) {
+    if (token !== spotifySeq) return null;
+    spotify.loading = false;
+    spotify.error = err.message;
+    console.error("Código de Spotify:", err);
+    return null;
+  }
+}
+
+async function actualizarSpotify() {
+  const uiToken = ++spotifyUiSeq;
+  const activo = $("spotifyOn").checked;
+  $("spotifyCampos").hidden = !activo;
+
+  if (!activo) {
+    $("spotifyEstado").textContent = "";
+    $("spotifyPreviewBox").hidden = true;
+    await asegurarCodigo(leer());
+    programar();
+    return;
+  }
+
+  const raw = $("spotifyUrl").value.trim();
+  const uri = parseSpotifyUri(raw);
+  if (!uri) {
+    $("spotifyEstado").textContent = raw
+      ? "Enlace no válido. Usa un enlace completo de open.spotify.com o un URI spotify:…"
+      : "";
+    $("spotifyPreviewBox").hidden = true;
+    await asegurarCodigo(leer());
+    programar();
+    return;
+  }
+
+  $("spotifyEstado").textContent = "Cargando código de Spotify…";
+  $("spotifyPreviewBox").hidden = true;
+  const bitmap = await asegurarCodigo(leer());
+  if (uiToken !== spotifyUiSeq) return;
+
+  if (!bitmap) {
+    $("spotifyEstado").textContent = "No se pudo cargar el código. Revisa el enlace o tu conexión.";
+    $("spotifyPreviewBox").hidden = true;
+    programar();
+    return;
+  }
+
+  const theme = THEMES[$("tema").value] ?? THEMES.noche;
+  $("spotifyPreview").src = spotifyCodeUrl(uri, theme);
+  $("spotifyPreviewBox").hidden = false;
+  $("spotifyEstado").textContent = "Código listo. Escanéalo desde la app de Spotify.";
+  programar();
+}
+
+async function cargarFuentesFirma() {
+  if (!("FontFace" in window)) return;
+  await Promise.allSettled(
+    FUENTES_FIRMA.map(async ({ familia, archivo }) => {
+      try {
+        const fuente = new FontFace(familia, `url(${archivo})`);
+        await fuente.load();
+        document.fonts.add(fuente);
+      } catch (err) {
+        console.warn(`No se pudo cargar la tipografía ${familia}:`, err);
+      }
+    }),
+  );
+}
+
+function actualizarFirmaPreview() {
+  const el = $("firmaPreview");
+  if (!el) return;
+  const familia = $("tipografiaNombres").value;
+  el.style.fontFamily = `"${familia}", "Segoe Script", "Brush Script MT", "Apple Chancery", cursive`;
+  el.textContent = $("nombres").value.trim() || "Ana & Luis";
+}
+
 function leer() {
   return {
     titulo: $("titulo").value.trim(),
+    nombres: $("nombres").value.trim(),
+    tipografiaNombres: $("tipografiaNombres").value,
     fecha: $("fecha").value,
     hora: $("hora").value || "00:00",
     tz: Number($("tz").value) || 0,
@@ -207,9 +426,12 @@ function opciones(s) {
     showMoon: s.luna,
     colorStars: s.colorEstrellas,
     titulo: s.titulo || "Nuestro cielo",
+    nombres: s.nombres,
+    tipografiaNombres: s.tipografiaNombres,
     fechaTexto: formatFechaEs(s.fecha, s.hora),
     lugarTexto: s.lugar,
     mensaje: s.mensaje,
+    spotify: spotify.bitmap ? { bitmap: spotify.bitmap, caption: spotify.caption } : null,
   };
 }
 
@@ -277,6 +499,11 @@ async function descargar() {
   setStatus("Generando imagen en alta resolución…");
   await new Promise((r) => setTimeout(r, 30));
   try {
+    const quiereCodigo =
+      $("spotifyOn").checked && Boolean(parseSpotifyUri($("spotifyUrl").value));
+    await asegurarCodigo(s);
+    const sinCodigo = quiereCodigo && !spotify.bitmap;
+
     const w = s.tamano;
     const h = Math.round(w * ratioFormato(s.formato));
     const off = document.createElement("canvas");
@@ -335,8 +562,8 @@ async function descargar() {
 
     setStatus(
       guardado
-        ? `Listo: ${w} × ${h} px · guardado en ${guardado.archivo}`
-        : `Listo: ${w} × ${h} px · si no se descargó, usa «Guardar PNG»`,
+        ? `Listo: ${w} × ${h} px${sinCodigo ? " · sin código de Spotify" : ""} · guardado en ${guardado.archivo}`
+        : `Listo: ${w} × ${h} px${sinCodigo ? " · sin código de Spotify" : ""} · si no se descargó, usa «Guardar PNG»`,
     );
   } catch (err) {
     console.error(err);
@@ -409,6 +636,36 @@ function conectar() {
 
   $("formato").addEventListener("change", actualizarMedidas);
   $("tamano").addEventListener("change", actualizarMedidas);
+
+  $("spotifyOn").addEventListener("change", () => {
+    $("spotifyCampos").hidden = !$("spotifyOn").checked;
+    actualizarSpotify();
+  });
+  $("spotifyUrl").addEventListener("input", () => {
+    clearTimeout(spotifyTimer);
+    spotifyTimer = setTimeout(actualizarSpotify, 600);
+  });
+  $("spotifyUrl").addEventListener("change", () => {
+    clearTimeout(spotifyTimer);
+    actualizarSpotify();
+  });
+  $("spotifyTexto").addEventListener("input", () => {
+    spotify.caption = $("spotifyTexto").value.trim();
+    programar();
+  });
+  $("tema").addEventListener("change", () => {
+    spotify.bitmap = null;
+    actualizarSpotify();
+  });
+
+  $("nombres").addEventListener("input", () => {
+    actualizarFirmaPreview();
+    programar();
+  });
+  $("tipografiaNombres").addEventListener("change", () => {
+    actualizarFirmaPreview();
+    programar();
+  });
 
   $("lugarPreset").addEventListener("change", () => {
     const l = LUGARES[Number($("lugarPreset").value)];
@@ -487,6 +744,8 @@ async function cargar() {
   ]);
   stars = e.estrellas;
   constellations = c.constelaciones;
+  await cargarFuentesFirma();
+  actualizarFirmaPreview();
   listo = true;
   // Ganchos de desarrollo: permiten comprobar el render sin la interfaz.
   window.__renderParaPrueba = (ctx, w, h) => renderPoster(ctx, w, h, opciones(leer()));
@@ -508,6 +767,7 @@ function init() {
   $("hora").value = ahora.hora;
 
   actualizarMedidas();
+  actualizarFirmaPreview();
   conectar();
   cargar().catch((err) => {
     console.error(err);

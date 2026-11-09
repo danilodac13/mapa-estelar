@@ -126,6 +126,26 @@ function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
+function roundedRect(ctx, x, y, w, h, r) {
+  if (typeof ctx.roundRect === "function") {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    return;
+  }
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+  ctx.lineTo(x + rr, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+  ctx.lineTo(x, y + rr);
+  ctx.quadraticCurveTo(x, y, x + rr, y);
+  ctx.closePath();
+}
+
 function drawMoonPhase(ctx, x, y, r, fase, creciente, theme) {
   const halo = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * 2.6);
   halo.addColorStop(0, withAlpha(theme.moonLit, 0.16));
@@ -195,9 +215,12 @@ export function renderPoster(ctx, width, height, opts) {
     showMoon = true,
     colorStars = true,
     titulo = "",
+    nombres = "",
+    tipografiaNombres = "Great Vibes",
     fechaTexto = "",
     lugarTexto = "",
     mensaje = "",
+    spotify = null,
   } = opts;
 
   const W = width;
@@ -402,14 +425,31 @@ export function renderPoster(ctx, width, height, opts) {
     ctx.fillText(label, cx + p.x, cy + p.y);
   }
 
-  // Título
+  // Nombres con tipografía tipo firma
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
+  const tieneNombres = Boolean(nombres);
+  if (tieneNombres) {
+    const familia = `"${tipografiaNombres}", "Segoe Script", "Brush Script MT", "Apple Chancery", cursive`;
+    let size = W * 0.058;
+    ctx.font = `400 ${size}px ${familia}`;
+    while (ctx.measureText(nombres).width > W * 0.8 && size > W * 0.028) {
+      size -= W * 0.001;
+      ctx.font = `400 ${size}px ${familia}`;
+    }
+    ctx.fillStyle = theme.accent;
+    ctx.fillText(nombres, cx, H * 0.048);
+  }
+
+  // Título
+  const yTitulo = H * (tieneNombres ? 0.095 : 0.085);
+  const yFecha = H * (tieneNombres ? 0.126 : 0.1185);
+  const yLinea = H * 0.148;
   if (titulo) {
     ctx.fillStyle = theme.text;
     ctx.font = `600 ${W * 0.046}px Georgia, "Times New Roman", serif`;
     if ("letterSpacing" in ctx) ctx.letterSpacing = `${W * 0.0055}px`;
-    ctx.fillText(titulo, cx, H * 0.085);
+    ctx.fillText(titulo, cx, yTitulo);
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
   }
 
@@ -418,7 +458,7 @@ export function renderPoster(ctx, width, height, opts) {
     ctx.fillStyle = theme.muted;
     ctx.font = `400 ${W * 0.0175}px "Segoe UI", system-ui, sans-serif`;
     if ("letterSpacing" in ctx) ctx.letterSpacing = `${W * 0.0035}px`;
-    ctx.fillText(fechaTexto.toUpperCase(), cx, H * 0.1185);
+    ctx.fillText(fechaTexto.toUpperCase(), cx, yFecha);
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
   }
 
@@ -426,17 +466,17 @@ export function renderPoster(ctx, width, height, opts) {
   ctx.strokeStyle = withAlpha(theme.accent, 0.6);
   ctx.lineWidth = R * 0.0026;
   ctx.beginPath();
-  ctx.moveTo(cx - W * 0.105, H * 0.141);
-  ctx.lineTo(cx - W * 0.018, H * 0.141);
-  ctx.moveTo(cx + W * 0.018, H * 0.141);
-  ctx.lineTo(cx + W * 0.105, H * 0.141);
+  ctx.moveTo(cx - W * 0.105, yLinea);
+  ctx.lineTo(cx - W * 0.018, yLinea);
+  ctx.moveTo(cx + W * 0.018, yLinea);
+  ctx.lineTo(cx + W * 0.105, yLinea);
   ctx.stroke();
   ctx.fillStyle = theme.accent;
   ctx.beginPath();
-  ctx.moveTo(cx, H * 0.1365);
-  ctx.lineTo(cx + W * 0.006, H * 0.141);
-  ctx.lineTo(cx, H * 0.1455);
-  ctx.lineTo(cx - W * 0.006, H * 0.141);
+  ctx.moveTo(cx, yLinea - H * 0.0045);
+  ctx.lineTo(cx + W * 0.006, yLinea);
+  ctx.lineTo(cx, yLinea + H * 0.0045);
+  ctx.lineTo(cx - W * 0.006, yLinea);
   ctx.closePath();
   ctx.fill();
 
@@ -457,9 +497,55 @@ export function renderPoster(ctx, width, height, opts) {
     });
   }
 
+  // Código de Spotify
+  const tieneSpotify = Boolean(spotify?.bitmap);
+  if (tieneSpotify) {
+    const codeW = W * 0.28;
+    const codeH = codeW / 4;
+    const pad = W * 0.012;
+    const caption = String(spotify.caption ?? "").trim();
+    let captionSize = W * 0.0145;
+
+    if (caption) {
+      ctx.font = `italic 400 ${captionSize}px Georgia, "Times New Roman", serif`;
+      while (ctx.measureText(caption).width > codeW && captionSize > W * 0.009) {
+        captionSize -= W * 0.0005;
+        ctx.font = `italic 400 ${captionSize}px Georgia, "Times New Roman", serif`;
+      }
+    }
+
+    const captionH = caption ? captionSize * 1.2 : 0;
+    const gap = caption ? W * 0.006 : 0;
+    const cardW = codeW + pad * 2;
+    const cardH = pad * 2 + captionH + gap + codeH;
+    const cardX = cx - cardW / 2;
+    const cardY = H * 0.865;
+
+    ctx.save();
+    ctx.fillStyle = theme.bg;
+    ctx.strokeStyle = withAlpha(theme.accent, 0.35);
+    ctx.lineWidth = Math.max(1, W * 0.0012);
+    roundedRect(ctx, cardX, cardY, cardW, cardH, W * 0.008);
+    ctx.fill();
+    ctx.stroke();
+
+    let y = cardY + pad;
+    if (caption) {
+      ctx.fillStyle = theme.muted;
+      ctx.font = `italic 400 ${captionSize}px Georgia, "Times New Roman", serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(caption, cx, y);
+      y += captionH + gap;
+    }
+
+    ctx.drawImage(spotify.bitmap, cardX + pad, y, codeW, codeH);
+    ctx.restore();
+  }
+
   // Pie
   ctx.fillStyle = withAlpha(theme.muted, 0.75);
   ctx.font = `400 ${W * 0.0115}px "Segoe UI", system-ui, sans-serif`;
   const coords = `${Math.abs(sky.lat).toFixed(4)}° ${sky.lat >= 0 ? "N" : "S"} · ${Math.abs(sky.lon).toFixed(4)}° ${sky.lon >= 0 ? "E" : "O"}`;
-  ctx.fillText(coords, cx, H * 0.96);
+  ctx.fillText(coords, cx, tieneSpotify ? H * 0.975 : H * 0.96);
 }

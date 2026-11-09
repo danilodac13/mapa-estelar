@@ -6,7 +6,7 @@
 //
 // Fuentes:
 //   - HYG Database v4.1 (astronexus) — CC BY-SA 4.0
-//   - d3-celestial (Olaf Frohn) — MIT
+//   - d3-celestial (Olaf Frohn) — BSD-3-Clause
 import { createReadStream } from "node:fs";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createInterface } from "node:readline";

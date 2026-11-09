@@ -39,6 +39,28 @@
             />
           </label>
 
+          <label class="field">
+            Nombres (opcional)
+            <input
+              id="nombres"
+              type="text"
+              maxlength="60"
+              placeholder="Ana &amp; Luis"
+              autocomplete="off"
+            />
+          </label>
+
+          <label class="field">
+            Tipografía de los nombres
+            <select id="tipografiaNombres">
+              <option value="Great Vibes">Elegante · Great Vibes</option>
+              <option value="Parisienne">Romántica · Parisienne</option>
+              <option value="Sacramento">Moderna · Sacramento</option>
+              <option value="Pinyon Script">Clásica · Pinyon Script</option>
+            </select>
+          </label>
+          <p class="firma-preview" id="firmaPreview" aria-hidden="true">Ana &amp; Luis</p>
+
           <div class="row">
             <label class="field">
               Fecha
@@ -129,6 +151,59 @@
         </section>
 
         <section class="group">
+          <h2>Música</h2>
+
+          <div class="checks">
+            <label class="wide">
+              <input id="spotifyOn" type="checkbox" /> Añadir código de Spotify
+            </label>
+          </div>
+
+          <div id="spotifyCampos" hidden>
+            <label class="field">
+              Enlace o URI de Spotify
+              <input
+                id="spotifyUrl"
+                type="text"
+                placeholder="https://open.spotify.com/track/…"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+
+            <label class="field">
+              Texto junto al código (opcional)
+              <input
+                id="spotifyTexto"
+                type="text"
+                maxlength="42"
+                value="Nuestra canción"
+                autocomplete="off"
+              />
+            </label>
+
+            <div class="spotify-preview" id="spotifyPreviewBox" hidden>
+              <img id="spotifyPreview" alt="Vista previa del código de Spotify" />
+            </div>
+
+            <p class="hint" id="spotifyEstado"></p>
+            <p class="hint">
+              Pega el enlace de una canción, álbum, playlist, artista o episodio. En
+              Spotify: <strong>⋯ → Compartir → Copiar enlace</strong>. El código se genera
+              con el servicio de Spotify Codes y se escanea desde la app de Spotify.
+              <br />
+              Uso personal: no vendas pósteres con el código.
+              <a
+                href="https://www.spotifycodes.com/"
+                target="_blank"
+                rel="noopener"
+                >Condiciones de Spotify Codes</a
+              >.
+            </p>
+          </div>
+        </section>
+
+        <section class="group">
           <h2>Descargar</h2>
 
           <label class="field">
@@ -159,7 +234,8 @@
         </section>
 
         <footer class="foot">
-          Datos abiertos · HYG Database + d3-celestial<br />
+          Datos abiertos · HYG Database (CC BY-SA 4.0) + d3-celestial (BSD-3)<br />
+          Búsqueda: © OpenStreetMap contributors<br />
           Proyección estereográfica · sin dependencias
         </footer>
       </aside>
